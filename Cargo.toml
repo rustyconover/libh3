@@ -3,8 +3,9 @@ name = "libh3"
 version = "0.1.0"
 authors = ["Rusty Conover <rusty@conover.me>"]
 edition = "2018"
-
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
+license = "MIT"
+repository = "https://github.com/rustyconover/libh3.git"
+description = "Safe Rust Bindings to Uber's Hexagonal Hierarchical Spatial Index - H3"
 
 [dependencies]
 libh3-sys = "0.1.1"
