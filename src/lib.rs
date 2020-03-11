@@ -25,11 +25,79 @@ pub fn rads_to_degs(radians: f64) -> f64 {
     }
 }
 
+/// Represent a coordinate
+#[derive(Debug)]
+pub struct GeoCoord {
+    pub lat: f64,
+    pub lon: f64,
+}
+
+impl GeoCoord {
+    pub fn new(lat: f64, lon: f64) -> GeoCoord {
+        GeoCoord { lat, lon }
+    }
+}
+
+impl From<&GeoCoord> for libh3_sys::GeoCoord {
+    fn from(coord: &GeoCoord) -> Self {
+        return libh3_sys::GeoCoord {
+            lat: coord.lat,
+            lon: coord.lon,
+        };
+    }
+}
+
+/// A H3 index value a unique address of a hexagon or more unlikely
+/// a pentagon.
+pub type H3Index = libh3_sys::H3Index;
+
+/// A resolution that ranges from 0 to 15.
+///
+/// See the [resolution table](https://h3geo.org/#/documentation/core-library/resolution-table) for
+/// the sizes of resolution.
+pub type Resolution = u8;
+
+/// Return the edge length of a hexagon at a particular resolution in kilometers.
+///
+/// ```
+/// use libh3::edge_length_km;
+/// assert_eq!(edge_length_km(5), 8.544408276);
+/// ```
+pub fn edge_length_km(resolution: Resolution) -> f64 {
+    unsafe {
+        return libh3_sys::edgeLengthKm(resolution as i32);
+    }
+}
+
+/// Return the number of hexagons at a particular resolution.
+///
+/// ```
+/// use libh3::num_hexagons;
+/// assert_eq!(num_hexagons(5), 2016842);
+/// ```
+pub fn num_hexagons(resolution: Resolution) -> u64 {
+    unsafe {
+        return libh3_sys::numHexagons(resolution as i32) as u64;
+    }
+}
+
+/// Return the edge length of a hexagon at a particular resolution in meters.
+///
+/// ```
+/// use libh3::edge_length_m;
+/// assert_eq!(edge_length_m(5), 8544.408276);
+/// ```
+pub fn edge_length_m(resolution: Resolution) -> f64 {
+    unsafe {
+        return libh3_sys::edgeLengthM(resolution as i32);
+    }
+}
+
 /// Convert a GeoCoord to a H3 index.
 ///
 /// ```
-/// use libh3::{degs_to_rads, geo_to_h3};
-/// let coords = libh3_sys::GeoCoord {
+/// use libh3::{GeoCoord, degs_to_rads, geo_to_h3};
+/// let coords = GeoCoord {
 ///   lat: degs_to_rads(40.689167),
 ///   lon: degs_to_rads(-74.044444),
 /// };
@@ -37,9 +105,9 @@ pub fn rads_to_degs(radians: f64) -> f64 {
 /// let v = geo_to_h3(&coords, 10);
 /// assert_eq!(v.unwrap(), 0x8a2a1072b59ffff);
 /// ```
-pub fn geo_to_h3(coord: &libh3_sys::GeoCoord, resolution: u8) -> Result<libh3_sys::H3Index, ()> {
+pub fn geo_to_h3(coord: &GeoCoord, resolution: Resolution) -> Result<H3Index, ()> {
     unsafe {
-        return match libh3_sys::geoToH3(coord, resolution as i32) {
+        return match libh3_sys::geoToH3(&libh3_sys::GeoCoord::from(coord), resolution as i32) {
             0 => Err(()),
             x => Ok(x),
         };
@@ -54,12 +122,12 @@ pub fn geo_to_h3(coord: &libh3_sys::GeoCoord, resolution: u8) -> Result<libh3_sy
 /// assert_eq!(r.lat, 0.7101643819054542);
 /// assert_eq!(r.lon, -1.2923191206954798);
 /// ```
-pub fn h3_to_geo(h3: libh3_sys::H3Index) -> libh3_sys::GeoCoord {
+pub fn h3_to_geo(h3: H3Index) -> GeoCoord {
     let mut result: libh3_sys::GeoCoord = unsafe { MaybeUninit::uninit().assume_init() };
     unsafe {
         libh3_sys::h3ToGeo(h3, &mut result);
     }
-    return result;
+    return GeoCoord::new(result.lat, result.lon);
 }
 
 /// Convert a H3 index value to a GeoBoundary
@@ -68,7 +136,7 @@ pub fn h3_to_geo(h3: libh3_sys::H3Index) -> libh3_sys::GeoCoord {
 /// use libh3::h3_to_geo_boundary;
 /// h3_to_geo_boundary(0x8a2a1072b59ffff);
 /// ```
-pub fn h3_to_geo_boundary(h3: libh3_sys::H3Index) -> libh3_sys::GeoBoundary {
+pub fn h3_to_geo_boundary(h3: H3Index) -> libh3_sys::GeoBoundary {
     let mut result: libh3_sys::GeoBoundary = unsafe { MaybeUninit::uninit().assume_init() };
     unsafe {
         libh3_sys::h3ToGeoBoundary(h3, &mut result);
@@ -79,26 +147,26 @@ pub fn h3_to_geo_boundary(h3: libh3_sys::H3Index) -> libh3_sys::GeoBoundary {
 /// Return the resolution of a H3 index
 ///
 /// ```
-/// use libh3::{degs_to_rads, geo_to_h3, h3_get_resolution };
-/// let coords = libh3_sys::GeoCoord {
-///   lat: degs_to_rads(40.689167),
-///   lon: degs_to_rads(-74.044444),
-/// };
+/// use libh3::{GeoCoord, degs_to_rads, geo_to_h3, h3_get_resolution };
+/// let coords = GeoCoord::new(
+///   degs_to_rads(40.689167),
+///   degs_to_rads(-74.044444),
+/// );
 ///
 /// let v = geo_to_h3(&coords, 10);
 /// assert_eq!(h3_get_resolution(v.unwrap()), 10);
 /// ````
-pub fn h3_get_resolution(h3: libh3_sys::H3Index) -> u8 {
+pub fn h3_get_resolution(h3: H3Index) -> Resolution {
     unsafe {
-        return libh3_sys::h3GetResolution(h3) as u8;
+        return libh3_sys::h3GetResolution(h3) as Resolution;
     }
 }
 
 /// Determine if H3 index is valid
 ///
 /// ```
-/// use libh3::{degs_to_rads, geo_to_h3, h3_is_valid};
-/// let coords = libh3_sys::GeoCoord {
+/// use libh3::{GeoCoord, degs_to_rads, geo_to_h3, h3_is_valid};
+/// let coords = GeoCoord {
 ///   lat: degs_to_rads(40.689167),
 ///   lon: degs_to_rads(-74.044444),
 /// };
@@ -106,7 +174,7 @@ pub fn h3_get_resolution(h3: libh3_sys::H3Index) -> u8 {
 /// let v = geo_to_h3(&coords, 10);
 /// assert_eq!(h3_is_valid(v.unwrap()),true);
 /// ```
-pub fn h3_is_valid(h3: libh3_sys::H3Index) -> bool {
+pub fn h3_is_valid(h3: H3Index) -> bool {
     unsafe {
         return match libh3_sys::h3IsValid(h3) {
             0 => false,
@@ -118,8 +186,8 @@ pub fn h3_is_valid(h3: libh3_sys::H3Index) -> bool {
 /// Determine if two H3 indexes are neighbors
 ///
 /// ```
-/// use libh3::{degs_to_rads, geo_to_h3, h3_indexes_are_neighbors};
-/// let coords = libh3_sys::GeoCoord {
+/// use libh3::{GeoCoord, degs_to_rads, geo_to_h3, h3_indexes_are_neighbors};
+/// let coords = GeoCoord {
 ///   lat: degs_to_rads(40.689167),
 ///   lon: degs_to_rads(-74.044444),
 /// };
@@ -127,10 +195,7 @@ pub fn h3_is_valid(h3: libh3_sys::H3Index) -> bool {
 /// let v = geo_to_h3(&coords, 10);
 /// assert_eq!(h3_indexes_are_neighbors(v.unwrap(), v.unwrap()), false);
 /// ```
-pub fn h3_indexes_are_neighbors(
-    origin: libh3_sys::H3Index,
-    destination: libh3_sys::H3Index,
-) -> bool {
+pub fn h3_indexes_are_neighbors(origin: H3Index, destination: H3Index) -> bool {
     unsafe {
         return match libh3_sys::h3IndexesAreNeighbors(origin, destination) {
             0 => false,
@@ -155,7 +220,7 @@ pub fn hex_area_km_2(resolution: i32) -> f64 {
 /// ```
 /// assert_eq!(libh3::h3_is_pentagon(0x8a2a1072b59ffff), false);
 /// ```
-pub fn h3_is_pentagon(h3: libh3_sys::H3Index) -> bool {
+pub fn h3_is_pentagon(h3: H3Index) -> bool {
     unsafe {
         return match libh3_sys::h3IsPentagon(h3) {
             0 => false,
@@ -170,7 +235,7 @@ pub fn h3_is_pentagon(h3: libh3_sys::H3Index) -> bool {
 /// use libh3;
 /// assert_eq!(libh3::h3_get_base_cell(0x8a2a1072b59ffff), 21);
 /// ```
-pub fn h3_get_base_cell(h3: libh3_sys::H3Index) -> i32 {
+pub fn h3_get_base_cell(h3: H3Index) -> i32 {
     unsafe {
         return libh3_sys::h3GetBaseCell(h3);
     }
@@ -196,10 +261,10 @@ pub fn h3_get_base_cell(h3: libh3_sys::H3Index) -> i32 {
 /// let r = libh3::k_ring(0x8a2a1072b59ffff, 1);
 /// assert_eq!(r, expected_kring);
 /// ```
-pub fn k_ring(origin: libh3_sys::H3Index, radius: i32) -> Vec<libh3_sys::H3Index> {
+pub fn k_ring(origin: H3Index, radius: i32) -> Vec<H3Index> {
     unsafe {
         let max = libh3_sys::maxKringSize(radius);
-        let mut r = Vec::<libh3_sys::H3Index>::with_capacity(max as usize);
+        let mut r = Vec::<H3Index>::with_capacity(max as usize);
         libh3_sys::kRing(origin, radius, r.as_mut_ptr());
         r.set_len(max as usize);
         r = r.into_iter().filter(|v| *v != 0).collect();
@@ -228,10 +293,10 @@ pub fn k_ring(origin: libh3_sys::H3Index, radius: i32) -> Vec<libh3_sys::H3Index
 /// let r = libh3::k_ring_distances(0x8a2a1072b59ffff, 1);
 /// assert_eq!(r, expected_kring_distances);
 /// ```
-pub fn k_ring_distances(origin: libh3_sys::H3Index, radius: i32) -> Vec<(libh3_sys::H3Index, i32)> {
+pub fn k_ring_distances(origin: H3Index, radius: i32) -> Vec<(H3Index, i32)> {
     unsafe {
         let max = libh3_sys::maxKringSize(radius);
-        let mut indexes = Vec::<libh3_sys::H3Index>::with_capacity(max as usize);
+        let mut indexes = Vec::<H3Index>::with_capacity(max as usize);
         let mut distances = Vec::<i32>::with_capacity(max as usize);
 
         libh3_sys::kRingDistances(origin, radius, indexes.as_mut_ptr(), distances.as_mut_ptr());
@@ -242,14 +307,14 @@ pub fn k_ring_distances(origin: libh3_sys::H3Index, radius: i32) -> Vec<(libh3_s
             .into_iter()
             .zip(distances.into_iter())
             .filter(|v| v.0 != 0)
-            .collect::<Vec<(libh3_sys::H3Index, i32)>>();
+            .collect::<Vec<(H3Index, i32)>>();
     }
 }
 
-pub fn hex_range(origin: libh3_sys::H3Index, k: i32) -> (bool, Vec<libh3_sys::H3Index>) {
+pub fn hex_range(origin: H3Index, k: i32) -> (bool, Vec<H3Index>) {
     unsafe {
         let max = libh3_sys::maxKringSize(k);
-        let mut r = Vec::<libh3_sys::H3Index>::with_capacity(max as usize);
+        let mut r = Vec::<H3Index>::with_capacity(max as usize);
         let distortion = libh3_sys::hexRange(origin, k, r.as_mut_ptr());
         r.set_len(max as usize);
         r = r.into_iter().filter(|v| *v != 0).collect();
@@ -257,13 +322,10 @@ pub fn hex_range(origin: libh3_sys::H3Index, k: i32) -> (bool, Vec<libh3_sys::H3
     }
 }
 
-pub fn hex_range_distances(
-    origin: libh3_sys::H3Index,
-    k: i32,
-) -> (bool, Vec<(libh3_sys::H3Index, i32)>) {
+pub fn hex_range_distances(origin: H3Index, k: i32) -> (bool, Vec<(H3Index, i32)>) {
     unsafe {
         let max = libh3_sys::maxKringSize(k);
-        let mut indexes = Vec::<libh3_sys::H3Index>::with_capacity(max as usize);
+        let mut indexes = Vec::<H3Index>::with_capacity(max as usize);
         let mut distances = Vec::<i32>::with_capacity(max as usize);
 
         let distortion =
@@ -277,7 +339,7 @@ pub fn hex_range_distances(
                 .into_iter()
                 .zip(distances.into_iter())
                 .filter(|v| v.0 != 0)
-                .collect::<Vec<(libh3_sys::H3Index, i32)>>(),
+                .collect::<Vec<(H3Index, i32)>>(),
         );
     }
 }
@@ -294,7 +356,7 @@ pub fn hex_range_distances(
 /// use libh3::h3_distance;
 /// assert_eq!(h3_distance(0x8a2a1072b4a7fff, 0x8a2a1072b58ffff), Ok(1));
 /// ```
-pub fn h3_distance(origin: libh3_sys::H3Index, end: libh3_sys::H3Index) -> Result<i32, ()> {
+pub fn h3_distance(origin: H3Index, end: H3Index) -> Result<i32, ()> {
     unsafe {
         let r = libh3_sys::h3Distance(origin, end);
         if r < 0 {
@@ -332,10 +394,7 @@ pub fn h3_distance(origin: libh3_sys::H3Index, end: libh3_sys::H3Index) -> Resul
 /// let h = polyfill(&vec![sf_verts], 9);
 /// assert_eq!(h.len(), 7057);
 /// ```
-pub fn polyfill(
-    polygon: &Vec<Vec<libh3_sys::GeoCoord>>,
-    resolution: i32,
-) -> Vec<libh3_sys::H3Index> {
+pub fn polyfill(polygon: &Vec<Vec<libh3_sys::GeoCoord>>, resolution: Resolution) -> Vec<H3Index> {
     unsafe {
         let fence = libh3_sys::Geofence {
             numVerts: polygon[0].len() as i32,
@@ -357,9 +416,9 @@ pub fn polyfill(
             holes: holes.as_ptr(),
         };
 
-        let max = libh3_sys::maxPolyfillSize(&p, resolution);
-        let mut r = Vec::<libh3_sys::H3Index>::with_capacity(max as usize);
-        libh3_sys::polyfill(&p, resolution, r.as_mut_ptr());
+        let max = libh3_sys::maxPolyfillSize(&p, resolution as i32);
+        let mut r = Vec::<H3Index>::with_capacity(max as usize);
+        libh3_sys::polyfill(&p, resolution as i32, r.as_mut_ptr());
         r.set_len(max as usize);
         return r;
     }
