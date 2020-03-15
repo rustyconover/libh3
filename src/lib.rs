@@ -1,4 +1,3 @@
-use libh3_sys;
 use std::mem::MaybeUninit;
 
 /// Convert degrees to radians
@@ -28,11 +27,22 @@ pub fn rads_to_degs(radians: f64) -> f64 {
 /// Represent a coordinate
 #[derive(Debug)]
 pub struct GeoCoord {
+    // The latitute of the coordinate, typcially this should be specified using
+    // radians but it is easy to convert using [degs_to_rads](degs_to_rads)
     pub lat: f64,
+    // The longitude of the coordinate, typcially this should be specified using
+    // radians but it is easy to convert using [degs_to_rads](degs_to_rads)
     pub lon: f64,
 }
 
 impl GeoCoord {
+    /// Create a new GeoCoord representing a coordinate
+    ///
+    /// # Arguments
+    ///
+    /// * `lat` - The latitude of the coordinate
+    /// * `long` - The longitude of the coordinate
+    ///
     pub fn new(lat: f64, lon: f64) -> GeoCoord {
         GeoCoord { lat, lon }
     }
@@ -130,18 +140,29 @@ pub fn h3_to_geo(h3: H3Index) -> GeoCoord {
     return GeoCoord::new(result.lat, result.lon);
 }
 
-/// Convert a H3 index value to a GeoBoundary
+type GeoBoundary = Vec<GeoCoord>;
+
+/// Convert a H3 index value to a GeoBoundary which are a
+/// vector of points that describe a H3 Index's boundary
 ///
 /// ```
 /// use libh3::h3_to_geo_boundary;
-/// h3_to_geo_boundary(0x8a2a1072b59ffff);
+/// let foo = h3_to_geo_boundary(0x8a2a1072b59ffff);
+/// assert_eq!(foo.len(), 6);
 /// ```
-pub fn h3_to_geo_boundary(h3: H3Index) -> libh3_sys::GeoBoundary {
-    let mut result: libh3_sys::GeoBoundary = unsafe { MaybeUninit::uninit().assume_init() };
+pub fn h3_to_geo_boundary(h3: H3Index) -> GeoBoundary {
     unsafe {
-        libh3_sys::h3ToGeoBoundary(h3, &mut result);
+        let mut boundary_result: libh3_sys::GeoBoundary = MaybeUninit::uninit().assume_init();
+        libh3_sys::h3ToGeoBoundary(h3, &mut boundary_result);
+        let mut result = Vec::with_capacity(boundary_result.numVerts as usize);
+        for i in 0..boundary_result.numVerts as usize {
+            result.push(GeoCoord::new(
+                boundary_result.verts[i].lat,
+                boundary_result.verts[i].lon,
+            ));
+        }
+        return result;
     }
-    return result;
 }
 
 /// Return the resolution of a H3 index
@@ -377,7 +398,7 @@ pub fn h3_distance(origin: H3Index, end: H3Index) -> Result<i32, ()> {
 /// * `resolution` - The resolution of the generated hexagons
 ///
 /// ```
-/// use libh3::polyfill;
+/// use libh3::{polyfill, GeoCoord};
 /// /// Some vertexes around San Francisco
 /// let sf_verts = vec![
 ///   (0.659966917655, -2.1364398519396),
@@ -388,20 +409,27 @@ pub fn h3_distance(origin: H3Index, end: H3Index) -> Result<i32, ()> {
 ///   (0.6599990002976, -2.1376771158464),
 /// ]
 /// .iter()
-/// .map(|v| libh3_sys::GeoCoord { lat: v.0, lon: v.1 })
-/// .collect::<Vec<libh3_sys::GeoCoord>>();
+/// .map(|v| GeoCoord::new(v.0, v.1))
+/// .collect();
 ///
 /// let h = polyfill(&vec![sf_verts], 9);
 /// assert_eq!(h.len(), 7057);
 /// ```
-pub fn polyfill(polygon: &Vec<Vec<libh3_sys::GeoCoord>>, resolution: Resolution) -> Vec<H3Index> {
+pub fn polyfill(polygon: &Vec<Vec<GeoCoord>>, resolution: Resolution) -> Vec<H3Index> {
+    let real_polygon = polygon
+        .iter()
+        .map(|p| {
+            return p.iter().map(libh3_sys::GeoCoord::from).collect();
+        })
+        .collect::<Vec<Vec<libh3_sys::GeoCoord>>>();
+
     unsafe {
         let fence = libh3_sys::Geofence {
-            numVerts: polygon[0].len() as i32,
-            verts: polygon[0].as_ptr(),
+            numVerts: real_polygon[0].len() as i32,
+            verts: real_polygon[0].as_ptr(),
         };
 
-        let holes = polygon
+        let holes = real_polygon
             .iter()
             .skip(1)
             .map(|p| libh3_sys::Geofence {
@@ -412,7 +440,7 @@ pub fn polyfill(polygon: &Vec<Vec<libh3_sys::GeoCoord>>, resolution: Resolution)
 
         let p = libh3_sys::GeoPolygon {
             geofence: fence,
-            numHoles: (polygon.len() - 1) as i32,
+            numHoles: (real_polygon.len() - 1) as i32,
             holes: holes.as_ptr(),
         };
 
