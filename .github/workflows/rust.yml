@@ -1,0 +1,29 @@
+name: Rust
+
+on:
+  push:
+    branches: [master]
+  pull_request:
+    branches: [master]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install h3 build deps
+        run: sudo apt install cmake make gcc libtool
+      - name: Checkout h3 repo
+        uses: actions/checkout@v2
+        with:
+          repository: uber/h3
+          path: h3
+      - name: Build H3
+        run: cd h3 && cmake . && make -j
+      - name: Install H3
+        run: cd h3 && sudo make install
+      - name: Build Rust
+        run: cargo build --verbose
+      - name: Run tests
+        run: cargo test --verbose

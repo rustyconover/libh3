@@ -1,6 +1,6 @@
 [package]
 name = "libh3"
-version = "0.1.2"
+version = "0.1.5"
 authors = ["Rusty Conover <rusty@conover.me>"]
 edition = "2018"
 license = "MIT"
@@ -8,5 +8,5 @@ repository = "https://github.com/rustyconover/libh3.git"
 description = "Safe Rust Bindings to Uber's Hexagonal Hierarchical Spatial Index - H3"
 
 [dependencies]
-libh3-sys = "0.1.1"
+libh3-sys = "0.1.2"
 float-cmp = "0.6.0"

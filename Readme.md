@@ -1,6 +1,6 @@
 # libh3 - Wrapper for Uber’s Hexagonal Hierarchical Spatial Index in Rust
 
-This crate wraps functions provided by [libh3-sys](https://docs.rs/libh3-sys/) to expose a safe API for the H3 library.
+This crate calls functions provided by [libh3-sys](https://docs.rs/libh3-sys/) to expose a safe Rust API for the H3 library.
 
 Contributions are welcome.
 
