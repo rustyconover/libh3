@@ -463,9 +463,10 @@ pub fn h3_distance(origin: H3Index, end: H3Index) -> Result<i32, ()> {
 ///    (174.800937866947, -41.22501356278325),
 /// ].iter().map(|v| GeoCoord::new(degs_to_rads(v.1), degs_to_rads(v.0))).collect();
 ///
-/// let h = polyfill(&vec![wellington_verts], 6);
+/// let mut h = polyfill(&vec![wellington_verts], 6);
 /// assert_eq!(h.len(), 5);
-/// assert_eq!(h, vec![606774929441947647, 606774929307729919, 606774924341673983, 606774925549633535, 606774925281198079]);
+/// h.sort_unstable();
+/// assert_eq!(h, vec![606774924341673983, 606774925281198079, 606774925549633535, 606774929307729919, 606774929441947647]);
 /// ```
 pub fn polyfill(polygon: &Vec<Vec<GeoCoord>>, resolution: Resolution) -> Vec<H3Index> {
     let real_polygon = polygon
