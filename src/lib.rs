@@ -7,9 +7,7 @@ use std::mem::MaybeUninit;
 /// assert_eq!(2.413790355508158, degs_to_rads(138.3));
 /// ```
 pub fn degs_to_rads(degrees: f64) -> f64 {
-    unsafe {
-        return libh3_sys::degsToRads(degrees);
-    }
+    unsafe { libh3_sys::degsToRads(degrees) }
 }
 
 /// Convert radians to degrees
@@ -19,9 +17,7 @@ pub fn degs_to_rads(degrees: f64) -> f64 {
 /// assert_eq!(138.3, rads_to_degs(2.413790355508158));
 /// ```
 pub fn rads_to_degs(radians: f64) -> f64 {
-    unsafe {
-        return libh3_sys::radsToDegs(radians);
-    }
+    unsafe { libh3_sys::radsToDegs(radians) }
 }
 
 /// Represent a coordinate
@@ -50,10 +46,10 @@ impl GeoCoord {
 
 impl From<&GeoCoord> for libh3_sys::GeoCoord {
     fn from(coord: &GeoCoord) -> Self {
-        return libh3_sys::GeoCoord {
+        libh3_sys::GeoCoord {
             lat: coord.lat,
             lon: coord.lon,
-        };
+        }
     }
 }
 
@@ -63,8 +59,8 @@ pub type H3Index = libh3_sys::H3Index;
 
 /// A resolution that ranges from 0 to 15.
 ///
-/// See the [resolution table](https://h3geo.org/#/documentation/core-library/resolution-table) for
-/// the sizes of resolution.
+/// See the [resolution table](https://h3geo.org/docs/core-library/restable)
+/// for the sizes of resolution.
 pub type Resolution = u8;
 
 /// Return the edge length of a hexagon at a particular resolution in kilometers.
@@ -74,9 +70,7 @@ pub type Resolution = u8;
 /// assert_eq!(edge_length_km(5), 8.544408276);
 /// ```
 pub fn edge_length_km(resolution: Resolution) -> f64 {
-    unsafe {
-        return libh3_sys::edgeLengthKm(resolution as i32);
-    }
+    unsafe { libh3_sys::edgeLengthKm(resolution as i32) }
 }
 
 /// Return the number of hexagons at a particular resolution.
@@ -86,9 +80,7 @@ pub fn edge_length_km(resolution: Resolution) -> f64 {
 /// assert_eq!(num_hexagons(5), 2016842);
 /// ```
 pub fn num_hexagons(resolution: Resolution) -> u64 {
-    unsafe {
-        return libh3_sys::numHexagons(resolution as i32) as u64;
-    }
+    unsafe { libh3_sys::numHexagons(resolution as i32) as u64 }
 }
 
 /// Return the edge length of a hexagon at a particular resolution in meters.
@@ -98,9 +90,7 @@ pub fn num_hexagons(resolution: Resolution) -> u64 {
 /// assert_eq!(edge_length_m(5), 8544.408276);
 /// ```
 pub fn edge_length_m(resolution: Resolution) -> f64 {
-    unsafe {
-        return libh3_sys::edgeLengthM(resolution as i32);
-    }
+    unsafe { libh3_sys::edgeLengthM(resolution as i32) }
 }
 
 /// Convert a GeoCoord to a H3 index.
@@ -117,10 +107,10 @@ pub fn edge_length_m(resolution: Resolution) -> f64 {
 /// ```
 pub fn geo_to_h3(coord: &GeoCoord, resolution: Resolution) -> Result<H3Index, ()> {
     unsafe {
-        return match libh3_sys::geoToH3(&libh3_sys::GeoCoord::from(coord), resolution as i32) {
+        match libh3_sys::geoToH3(&libh3_sys::GeoCoord::from(coord), resolution as i32) {
             0 => Err(()),
             x => Ok(x),
-        };
+        }
     }
 }
 
@@ -133,11 +123,12 @@ pub fn geo_to_h3(coord: &GeoCoord, resolution: Resolution) -> Result<H3Index, ()
 /// assert_eq!(r.lon, -1.2923191206954798);
 /// ```
 pub fn h3_to_geo(h3: H3Index) -> GeoCoord {
-    let mut result: libh3_sys::GeoCoord = unsafe { MaybeUninit::uninit().assume_init() };
-    unsafe {
-        libh3_sys::h3ToGeo(h3, &mut result);
-    }
-    return GeoCoord::new(result.lat, result.lon);
+    let result = unsafe {
+        let mut result: MaybeUninit<libh3_sys::GeoCoord> = MaybeUninit::uninit().assume_init();
+        libh3_sys::h3ToGeo(h3, result.as_mut_ptr());
+        result.assume_init()
+    };
+    GeoCoord::new(result.lat, result.lon)
 }
 
 type GeoBoundary = Vec<GeoCoord>;
@@ -152,16 +143,15 @@ type GeoBoundary = Vec<GeoCoord>;
 /// ```
 pub fn h3_to_geo_boundary(h3: H3Index) -> GeoBoundary {
     unsafe {
-        let mut boundary_result: libh3_sys::GeoBoundary = MaybeUninit::uninit().assume_init();
-        libh3_sys::h3ToGeoBoundary(h3, &mut boundary_result);
-        let mut result = Vec::with_capacity(boundary_result.numVerts as usize);
-        for i in 0..boundary_result.numVerts as usize {
-            result.push(GeoCoord::new(
-                boundary_result.verts[i].lat,
-                boundary_result.verts[i].lon,
-            ));
+        let mut boundary_result: MaybeUninit<libh3_sys::GeoBoundary> =
+            MaybeUninit::uninit().assume_init();
+        libh3_sys::h3ToGeoBoundary(h3, boundary_result.as_mut_ptr());
+        let boundary = boundary_result.assume_init();
+        let mut result = Vec::with_capacity(boundary.numVerts as usize);
+        for i in 0..boundary.numVerts as usize {
+            result.push(GeoCoord::new(boundary.verts[i].lat, boundary.verts[i].lon));
         }
-        return result;
+        result
     }
 }
 
@@ -178,9 +168,7 @@ pub fn h3_to_geo_boundary(h3: H3Index) -> GeoBoundary {
 /// assert_eq!(h3_get_resolution(v.unwrap()), 10);
 /// ````
 pub fn h3_get_resolution(h3: H3Index) -> Resolution {
-    unsafe {
-        return libh3_sys::h3GetResolution(h3) as Resolution;
-    }
+    unsafe { libh3_sys::h3GetResolution(h3) as Resolution }
 }
 
 /// Determine if H3 index is valid
@@ -197,10 +185,10 @@ pub fn h3_get_resolution(h3: H3Index) -> Resolution {
 /// ```
 pub fn h3_is_valid(h3: H3Index) -> bool {
     unsafe {
-        return match libh3_sys::h3IsValid(h3) {
+        match libh3_sys::h3IsValid(h3) {
             0 => false,
             _ => true,
-        };
+        }
     }
 }
 
@@ -218,10 +206,10 @@ pub fn h3_is_valid(h3: H3Index) -> bool {
 /// ```
 pub fn h3_indexes_are_neighbors(origin: H3Index, destination: H3Index) -> bool {
     unsafe {
-        return match libh3_sys::h3IndexesAreNeighbors(origin, destination) {
+        match libh3_sys::h3IndexesAreNeighbors(origin, destination) {
             0 => false,
             _ => true,
-        };
+        }
     }
 }
 
@@ -232,9 +220,7 @@ pub fn h3_indexes_are_neighbors(origin: H3Index, destination: H3Index) -> bool {
 /// assert_eq!(hex_area_km_2(10), 0.0150475);
 /// ```
 pub fn hex_area_km_2(resolution: i32) -> f64 {
-    unsafe {
-        return libh3_sys::hexAreaKm2(resolution);
-    }
+    unsafe { libh3_sys::hexAreaKm2(resolution) }
 }
 
 /// Determine if the specified H3 index is a pentagon.
@@ -243,10 +229,10 @@ pub fn hex_area_km_2(resolution: i32) -> f64 {
 /// ```
 pub fn h3_is_pentagon(h3: H3Index) -> bool {
     unsafe {
-        return match libh3_sys::h3IsPentagon(h3) {
+        match libh3_sys::h3IsPentagon(h3) {
             0 => false,
             _ => true,
-        };
+        }
     }
 }
 
@@ -257,9 +243,7 @@ pub fn h3_is_pentagon(h3: H3Index) -> bool {
 /// assert_eq!(libh3::h3_get_base_cell(0x8a2a1072b59ffff), 21);
 /// ```
 pub fn h3_get_base_cell(h3: H3Index) -> i32 {
-    unsafe {
-        return libh3_sys::h3GetBaseCell(h3);
-    }
+    unsafe { libh3_sys::h3GetBaseCell(h3) }
 }
 
 /// Get all hexagons in a k-ring around a given center. The order of the hexagons is undefined.
@@ -289,7 +273,7 @@ pub fn k_ring(origin: H3Index, radius: i32) -> Vec<H3Index> {
         libh3_sys::kRing(origin, radius, r.as_mut_ptr());
         r.set_len(max as usize);
         r = r.into_iter().filter(|v| *v != 0).collect();
-        return r;
+        r
     }
 }
 
@@ -324,11 +308,11 @@ pub fn k_ring_distances(origin: H3Index, radius: i32) -> Vec<(H3Index, i32)> {
         indexes.set_len(max as usize);
         distances.set_len(max as usize);
 
-        return indexes
+        indexes
             .into_iter()
             .zip(distances.into_iter())
             .filter(|v| v.0 != 0)
-            .collect::<Vec<(H3Index, i32)>>();
+            .collect::<Vec<(H3Index, i32)>>()
     }
 }
 
@@ -339,7 +323,7 @@ pub fn hex_range(origin: H3Index, k: i32) -> (bool, Vec<H3Index>) {
         let distortion = libh3_sys::hexRange(origin, k, r.as_mut_ptr());
         r.set_len(max as usize);
         r = r.into_iter().filter(|v| *v != 0).collect();
-        return (distortion == 0, r);
+        (distortion == 0, r)
     }
 }
 
@@ -354,14 +338,14 @@ pub fn hex_range_distances(origin: H3Index, k: i32) -> (bool, Vec<(H3Index, i32)
         indexes.set_len(max as usize);
         distances.set_len(max as usize);
 
-        return (
+        (
             distortion == 0,
             indexes
                 .into_iter()
                 .zip(distances.into_iter())
                 .filter(|v| v.0 != 0)
                 .collect::<Vec<(H3Index, i32)>>(),
-        );
+        )
     }
 }
 
@@ -381,9 +365,10 @@ pub fn h3_distance(origin: H3Index, end: H3Index) -> Result<i32, ()> {
     unsafe {
         let r = libh3_sys::h3Distance(origin, end);
         if r < 0 {
-            return Err(());
+            Err(())
+        } else {
+            Ok(r)
         }
-        return Ok(r);
     }
 }
 
@@ -468,12 +453,10 @@ pub fn h3_distance(origin: H3Index, end: H3Index) -> Result<i32, ()> {
 /// h.sort_unstable();
 /// assert_eq!(h, vec![606774924341673983, 606774925281198079, 606774925549633535, 606774929307729919, 606774929441947647]);
 /// ```
-pub fn polyfill(polygon: &Vec<Vec<GeoCoord>>, resolution: Resolution) -> Vec<H3Index> {
+pub fn polyfill(polygon: &[Vec<GeoCoord>], resolution: Resolution) -> Vec<H3Index> {
     let real_polygon = polygon
         .iter()
-        .map(|p| {
-            return p.iter().map(libh3_sys::GeoCoord::from).collect();
-        })
+        .map(|p| p.iter().map(libh3_sys::GeoCoord::from).collect())
         .collect::<Vec<Vec<libh3_sys::GeoCoord>>>();
 
     unsafe {
@@ -502,6 +485,68 @@ pub fn polyfill(polygon: &Vec<Vec<GeoCoord>>, resolution: Resolution) -> Vec<H3I
         libh3_sys::polyfill(&p, resolution as i32, r.as_mut_ptr());
         r.set_len(max as usize);
         r.retain(|&v| v != 0);
-        return r;
+        r
+    }
+}
+
+/// Returns the size of the array needed by h3ToChildren for these inputs.
+///
+/// # Arguments
+///
+/// * `h` - The index of the parent resolution.
+/// * `resolution` - The resolution of the desired level.
+///
+/// ```
+/// use libh3::max_h3_to_children_size;
+/// assert_eq!(max_h3_to_children_size(0x852a1073fffffff, 6), 7);
+/// ```
+pub fn max_h3_to_children_size(h: H3Index, resolution: Resolution) -> i32 {
+    unsafe { libh3_sys::maxH3ToChildrenSize(h, resolution as i32) }
+}
+
+/// Returns the parent (coarser) index containing h3.
+///
+/// # Arguments
+///
+/// * `h` - The index of the child resolution.
+/// * `resolution` - The resolution of the desired level.
+///
+/// ```
+/// use libh3::h3_to_parent;
+/// assert_eq!(h3_to_parent(0x8a2a1072b4a7fff, 5), 0x852a1073fffffff);
+/// ```
+pub fn h3_to_parent(h: H3Index, resolution: Resolution) -> H3Index {
+    unsafe { libh3_sys::h3ToParent(h, resolution as i32) }
+}
+
+/// Returns children indexes contained by the given index at the given resolution.
+///
+/// # Arguments
+///
+/// * `h` - The index of the child resolution.
+/// * `resolution` - The resolution of the desired level.
+///
+/// ```
+/// use libh3::h3_to_children;
+/// assert_eq!(
+///     h3_to_children(0x852a1073fffffff, 6),
+///     vec![
+///         0x862a10707ffffff,
+///         0x862a1070fffffff,
+///         0x862a10717ffffff,
+///         0x862a1071fffffff,
+///         0x862a10727ffffff,
+///         0x862a1072fffffff,
+///         0x862a10737ffffff
+///     ]
+/// );
+/// ```
+pub fn h3_to_children(h: H3Index, resolution: Resolution) -> Vec<H3Index> {
+    let max = max_h3_to_children_size(h, resolution) as usize;
+    let mut result = Vec::<H3Index>::with_capacity(max as usize);
+    unsafe {
+        libh3_sys::h3ToChildren(h, resolution as i32, result.as_mut_ptr());
+        result.set_len(max as usize);
+        result
     }
 }
