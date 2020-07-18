@@ -550,3 +550,32 @@ pub fn h3_to_children(h: H3Index, resolution: Resolution) -> Vec<H3Index> {
         result
     }
 }
+
+/// Number of resolution 0 H3 indexes.
+///
+/// ```
+/// use libh3::res_0_index_count;
+/// assert_eq!(res_0_index_count(), 122);
+/// ```
+pub fn res_0_index_count() -> i32 {
+    unsafe { libh3_sys::res0IndexCount() }
+}
+
+/// All the resolution 0 H3 indexes.
+///
+/// ```
+/// use libh3::get_res_0_indexes;
+/// assert_eq!(
+///     get_res_0_indexes().len(),
+///     122
+/// );
+/// ```
+pub fn get_res_0_indexes() -> Vec<H3Index> {
+    let max = res_0_index_count() as usize;
+    let mut result = Vec::<H3Index>::with_capacity(max as usize);
+    unsafe {
+        libh3_sys::getRes0Indexes(result.as_mut_ptr());
+        result.set_len(max);
+        result
+    }
+}
