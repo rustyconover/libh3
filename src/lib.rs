@@ -1,3 +1,4 @@
+use std::ffi::CString;
 use std::mem::MaybeUninit;
 
 /// Convert degrees to radians
@@ -184,12 +185,7 @@ pub fn h3_get_resolution(h3: H3Index) -> Resolution {
 /// assert_eq!(h3_is_valid(v.unwrap()),true);
 /// ```
 pub fn h3_is_valid(h3: H3Index) -> bool {
-    unsafe {
-        match libh3_sys::h3IsValid(h3) {
-            0 => false,
-            _ => true,
-        }
-    }
+    unsafe { !matches!(libh3_sys::h3IsValid(h3), 0) }
 }
 
 /// Determine if two H3 indexes are neighbors
@@ -578,4 +574,41 @@ pub fn get_res_0_indexes() -> Vec<H3Index> {
         result.set_len(max);
         result
     }
+}
+
+/// Convert h3 index to string.
+///
+/// ```
+/// use libh3::{GeoCoord, degs_to_rads, geo_to_h3, h3_is_valid};
+/// let coords = GeoCoord {
+///   lat: degs_to_rads(40.689167),
+///   lon: degs_to_rads(-74.044444),
+/// };
+///
+/// let v = geo_to_h3(&coords, 10);
+/// assert_eq!(h3_to_string(v.unwrap()), "8a2a1072b59ffff".to_string());
+/// ```
+pub fn h3_to_string(h3: H3Index) -> String {
+    let c_string = CString::new("").expect("CString::new failed!");
+    let raw = c_string.into_raw();
+    unsafe {
+        libh3_sys::h3ToString(h3, raw, 15);
+        let c_string = CString::from_raw(raw);
+        c_string
+            .into_string()
+            .unwrap_or(format!("h3_to_string({:?}) failed!", h3))
+    }
+}
+
+/// Convert string to h3 index.
+///
+/// ```
+/// use libh3::{GeoCoord, degs_to_rads, geo_to_h3, h3_is_valid};
+/// let h3_string = "8a2a1072b59ffff".to_string();
+///
+/// assert_eq!(622236750694711295, h3_to_string(h3_string));
+/// ```
+pub fn h3_from_string(s: String) -> H3Index {
+    let c_string = CString::new(<String as AsRef<str>>::as_ref(&s)).expect("CString::new failed!");
+    unsafe { libh3_sys::stringToH3(c_string.as_ptr()) }
 }
